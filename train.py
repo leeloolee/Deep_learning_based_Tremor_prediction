@@ -1,4 +1,3 @@
-import model2
 import new_model
 import numpy as np
 import os
