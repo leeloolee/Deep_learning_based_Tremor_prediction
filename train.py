@@ -1,4 +1,4 @@
-import model2
+
 import new_model
 import numpy as np
 import os
@@ -9,6 +9,9 @@ import pandas as pd
 from tensorflow import keras
 import io
 from tensorflow.keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint
+
 
 logdir = os.path.join('logs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 output_model_file = os.path.join(logdir, "model.h5")
@@ -95,6 +98,7 @@ train_data_x, train_data_y = np.load('data_train_x,task,microscope_1_0.5,myungho
     'data_train_y,task,microscope_1_0.5,myunghoon.npy')
 test_data_x, test_data_y = np.load('data_test_x,task,microscope_1_0.5,myunghoon.npy'), np.load(
     'data_test_y,task,microscope_1_0.5,myunghoon.npy')
+
 tf_data_train = tf.data.Dataset.from_tensor_slices((train_data_x, train_data_y)).shuffle(200000).repeat().batch(
     64)  # 128
 # tf_data_valid = tf.data.Dataset.from_tensor_slices((train_data_x, train_data_y)).take(2662).batch(32)
@@ -108,15 +112,20 @@ file_writer = tf.summary.create_file_writer(logdir)
 # Define the per-epoch callback.
 cm_callback = keras.callbacks.LambdaCallback(on_epoch_end=figure_output)
 
+model_path = 'saved_model\\'+'{epoch:2d}-{val_loss:.4f}.hdf5'
+ms = ModelCheckpoint(model_path, monitor='val_loss', save_best_only=True, mode='min')
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=30 )
+
 callbacks = [
-    # ReduceLROnPlateau(monitor='val_loss',
-    #                                factor=0.5,
-    #                                patience=5,
-    #                                verbose=1,
-    #                                epsilon=0.01,
-    #                                mode='min'),
+    ReduceLROnPlateau(monitor='val_loss',
+                                   factor=0.5,
+                                   patience=5,
+                                   verbose=1,
+                                   epsilon=0.01,
+                                   mode='min'),
+    es,
     tf.keras.callbacks.TensorBoard(log_dir=logdir, profile_batch=0),
-    tf.keras.callbacks.ModelCheckpoint(output_model_file, save_best_only=True),
+    tf.keras.callbacks.ModelCheckpoint(model_path, monitor = 'val_loss'),
     # cm_callback
 ]
 
