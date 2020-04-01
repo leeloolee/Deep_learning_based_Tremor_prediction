@@ -1,4 +1,3 @@
-
 import new_model
 import numpy as np
 import os
@@ -7,13 +6,16 @@ import matplotlib.pyplot as plt
 import datetime
 import pandas as pd
 from tensorflow import keras
+
+from tensorflow.keras import metrics
 import io
 from tensorflow.keras.callbacks import ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint
 
 logdir = os.path.join('logs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 output_model_file = os.path.join(logdir, "model.h5")
 file_writer_cm = tf.summary.create_file_writer(logdir + '/cm')
-
 
 
 def plot_to_image(figure):
@@ -95,31 +97,42 @@ train_data_x, train_data_y = np.load('data_train_x,task,microscope_1_0.5,myungho
     'data_train_y,task,microscope_1_0.5,myunghoon.npy')
 test_data_x, test_data_y = np.load('data_test_x,task,microscope_1_0.5,myunghoon.npy'), np.load(
     'data_test_y,task,microscope_1_0.5,myunghoon.npy')
+
 tf_data_train = tf.data.Dataset.from_tensor_slices((train_data_x, train_data_y)).shuffle(200000).repeat().batch(
     64)  # 128
 # tf_data_valid = tf.data.Dataset.from_tensor_slices((train_data_x, train_data_y)).take(2662).batch(32)
 tf_data_test = tf.data.Dataset.from_tensor_slices((test_data_x, test_data_y)).shuffle(100000).repeat().batch(32)
 
-model = new_model.model2()
+model = new_model.model1()
 # model = model2.build_model()
-model.compile(optimizer = 'adam',loss= 'mse')# ss
+
+
+ # ss
 
 file_writer = tf.summary.create_file_writer(logdir)
 # Define the per-epoch callback.
 cm_callback = keras.callbacks.LambdaCallback(on_epoch_end=figure_output)
 
+model_path = 'saved_model\\' + '{epoch:2d}.hdf5'
+ms = ModelCheckpoint(model_path, monitor='val_mse', save_best_only=True, mode='min')
+es = EarlyStopping(mode='min', verbose=1, patience=50)
+
 callbacks = [
-    # ReduceLROnPlateau(monitor='val_loss',
-    #                                factor=0.5,
-    #                                patience=5,
-    #                                verbose=1,
-    #                                epsilon=0.01,
-    #                                mode='min'),
+    ReduceLROnPlateau(monitor='val_mse',
+                      factor=0.5,
+                      patience=5,
+                      verbose=1,
+                      epsilon=0.01,
+                      mode='min'),
+
+    es,
     tf.keras.callbacks.TensorBoard(log_dir=logdir, profile_batch=0),
-    tf.keras.callbacks.ModelCheckpoint(output_model_file, save_best_only=True),
-    # cm_callback
+    tf.keras.callbacks.ModelCheckpoint(model_path,monitor = 'val_mse', save_freq=5),
+    tf.keras.callbacks.ModelCheckpoint(model_path, monitor = 'val_mse',save_best_only=True),
+    cm_callback
 ]
 
 model.fit(tf_data_train, steps_per_epoch=100, validation_data=tf_data_test, validation_steps=5, epochs=1000,
           callbacks=callbacks)
 model.save("./saved_model", overwrite=True)
+
