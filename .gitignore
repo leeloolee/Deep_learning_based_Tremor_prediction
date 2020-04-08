@@ -1,3 +1,4 @@
 /saved_model/
 /*.npy
 /datasets/*.npy
+/logs/
