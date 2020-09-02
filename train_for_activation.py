@@ -1,4 +1,4 @@
-import new_model
+import model
 import numpy as np
 import os
 import tensorflow as tf
@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import datetime
 import pandas as pd
 from tensorflow import keras
-
-from tensorflow.keras import metrics
 import io
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from tensorflow.keras.callbacks import EarlyStopping
@@ -103,7 +101,7 @@ tf_data_train = tf.data.Dataset.from_tensor_slices((train_data_x, train_data_y))
 # tf_data_valid = tf.data.Dataset.from_tensor_slices((train_data_x, train_data_y)).take(2662).batch(32)
 tf_data_test = tf.data.Dataset.from_tensor_slices((test_data_x, test_data_y)).shuffle(100000).repeat().batch(32)
 
-model = new_model.model4()
+model = model.model4()
 # model = model2.build_model()
 
 

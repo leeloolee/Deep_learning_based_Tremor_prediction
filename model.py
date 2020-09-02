@@ -1,41 +1,38 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Flatten, Conv1D, Input, MaxPool1D, GlobalAveragePooling1D, Dropout, Dense, \
-    Bidirectional, GRU, TimeDistributed, Lambda, Concatenate, Reshape, Subtract, Add, Activation, BatchNormalization
+    Bidirectional, GRU, TimeDistributed, Lambda, Concatenate, Reshape, Subtract, Add, Activation, BatchNormalization, LSTM, RNN
 from tensorflow.keras.utils import get_custom_objects
-
 from tensorflow.keras.optimizers import Adam
-
 import numpy as np
 from tensorflow.keras import Model
 
 
-
-
-# Cyclic RL is needed
-def model1():
-    input = Input(shape=(480, 1))
-    x = Conv1D(100, 10, activation='relu', padding='same')(input)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x1 = Conv1D(100, 10, activation='relu', padding='same')(x)
-    x = tf.keras.layers.Add()([x1, x])
-    x = MaxPool1D(3)(x)
-    x1 = Conv1D(100, 10, activation='relu', padding='same')(x)
-    x = tf.keras.layers.Add()([x1, x])
-    x = Conv1D(100, 10, activation='relu', padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = GlobalAveragePooling1D()(x)
-    x = Dropout(0.5)(x)
-    x = Dense(100)(x)
-    output = Dense(1)(x)
+def PHTNet():
+    input = Input(shape=(120, 1))
+    x = Bidirectional(LSTM(100, return_sequences=True, activation='sigmoid'))(input)  # why sigmoid?s
+    # x = Bidirectional(LSTM(100, return_sequences=True, activation='sigmoid'))(x)
+    x = Flatten()(x)
+    x = Dense(64)(x)
+    output = Dense(1)(x)  # TODO time distri?
     model = Model(input, output)
     model.compile(loss='mse', optimizer='Adam', metrics=['mse'])
     return model
 
+def LSTM():
+    input = Input(shape=(120, 1))
+    x = LSTM(100, activation='sigmoid')(input)  # why sigmoid?s
+    # x = Bidirectional(LSTM(100, return_sequences=True, activation='sigmoid'))(x)
+    x = Flatten()(x)
+    x = Dense(64)(x)
+    output = Dense(1)(x)  # TODO time distri?
+    model = Model(input, output)
+    model.compile(loss='mse', optimizer='Adam', metrics=['mse'])
+    return model
 
-def model2():
-    input = Input(shape=(480, 1))
-    x = Bidirectional(GRU(100, return_sequences=True, activation='sigmoid'))(input)  # why sigmoid?s
-    x = Bidirectional(GRU(100, return_sequences=True, activation='sigmoid'))(x)
+def RNN():
+    input = Input(shape=(120, 1))
+    x = RNN(100, activation='sigmoid')(input)  # why sigmoid?s
+    # x = Bidirectional(LSTM(100, return_sequences=True, activation='sigmoid'))(x)
     x = Flatten()(x)
     x = Dense(64)(x)
     output = Dense(1)(x)  # TODO time distri?
@@ -44,8 +41,8 @@ def model2():
     return model
 
 
-def model3():
-    input = Input(shape=(480, 1))
+def ANN():
+    input = Input(shape=(120, 1))
     x = Flatten()(input)
     x = Dense(480, activation='relu')(x)
     x = Dense(480, activation='relu')(x)
@@ -53,28 +50,6 @@ def model3():
     model = Model(input, output)
     model.compile(loss='mse', optimizer='Adam', metrics=['mse'])
     return model
-
-
-
-
-
-
-def model4():
-# looking for 1 layer weight
-    input = Input(shape=(480, 1))
-    x = Flatten()(input)
-    output = Dense(1)(x)
-    model = Model(input, output)
-    model.compile(loss='MSE', optimizer='Adam', metrics=['mse'])
-
-    return model
-
-
-
-def model5():
-    # attention
-    NotImplementedError
-
 
 
 class NBeatsNet:
@@ -85,10 +60,10 @@ class NBeatsNet:
     def __init__(self,
                  input_dim=1,
                  exo_dim=0,
-                 backcast_length=480,
-                 forecast_length=1,
-                 stack_types=(TREND_BLOCK, SEASONALITY_BLOCK),
-                 nb_blocks_per_stack=5,
+                 backcast_length=120,
+                 forecast_length=20,
+                 stack_types=(GENERIC_BLOCK, GENERIC_BLOCK),
+                 nb_blocks_per_stack=4,
                  thetas_dim=(4, 8),
                  share_weights_in_stack=False,
                  hidden_layer_units=256,
@@ -148,7 +123,6 @@ class NBeatsNet:
         else:
             model = Model(x, y_)
 
-        model.summary()
 
         self.n_beats = model
 
@@ -200,9 +174,9 @@ class NBeatsNet:
         elif stack_type == 'trend':
             theta_f = theta_b = reg(Dense(nb_poly, activation='linear', use_bias=False, name=n('theta_f_b')))
             backcast = Lambda(trend_model, arguments={"is_forecast": False, "backcast_length": self.backcast_length,
-                                                      "forecast_length": self.forecast_length})
+                                                      "forecast_length": self.forecast_length}, name=n('backcast'))
             forecast = Lambda(trend_model, arguments={"is_forecast": True, "backcast_length": self.backcast_length,
-                                                      "forecast_length": self.forecast_length})
+                                                      "forecast_length": self.forecast_length}, name=n('forecast'))
         else:  # 'seasonality'
             if self.nb_harmonics:
                 theta_b = reg(Dense(self.nb_harmonics, activation='linear', use_bias=False, name=n('theta_b')))
@@ -222,16 +196,12 @@ class NBeatsNet:
                 d0 = x[k]
             d1_ = d1(d0)
 
-            d1_ = Dropout(0.2)(d1_)
             d2_ = d2(d1_)
 
-            d2_ = Dropout(0.2)(d2_)
             d3_ = d3(d2_)
 
-            d3_ = Dropout(0.2)(d3_)
             d4_ = d4(d3_)
 
-            d4_ = Dropout(0.2)(d4_)
             theta_f_ = theta_f(d4_)
             theta_b_ = theta_b(d4_)
             backcast_[k] = backcast(theta_b_)
@@ -287,6 +257,8 @@ def trend_model(thetas, backcast_length, forecast_length, is_forecast):
     t = tf.transpose(tf.stack([t ** i for i in range(p)], axis=0))
     t = tf.cast(t, np.float32)
     return tf.keras.backend.dot(thetas, tf.transpose(t))
+
+
 
 
 class Mish(tf.keras.layers.Activation):

@@ -1,4 +1,4 @@
-import new_model
+import model
 import numpy as np
 import os
 import tensorflow as tf
@@ -6,33 +6,18 @@ import matplotlib.pyplot as plt
 import datetime
 import pandas as pd
 from tensorflow import keras
-
-from tensorflow.keras import metrics
 import io
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.optimizers import Adam
 from tensorflow_addons.optimizers import RectifiedAdam as RAdam
-from tensorflow.keras.losses import mean_absolute_error as mae
-
 
 
 logdir = os.path.join('logs', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 output_model_file = os.path.join(logdir, "model.h5")
 file_writer_cm = tf.summary.create_file_writer(logdir + '/cm')
-length = 480
+length = 360
 
-
-"""
-def differentiable_smape(true, predicted):
-    epsilon = 0.1
-    true_o = true
-    pred_o = predicted
-    summ = tf.maximum(tf.abs(true_o) + tf.abs(pred_o) + epsilon, 0.5 + epsilon)
-    smape = tf.abs(pred_o - true_o) / summ
-    return smape
-"""
 
 def plot_to_image(figure):
     """Converts the matplotlib plot specified by 'figure' to a PNG image and
@@ -53,6 +38,12 @@ def plot_to_image(figure):
 
 
 def figure_output(epoch, logs):
+    """
+    학습 도중에 predict된 결과 이미지를 남기
+    :param epoch:
+    :param logs:
+    :return:
+    """
     # for i in range(1, 6):
     if epoch % 10 == 0:
         datas = pd.read_csv('dataset/myunghoon/microscope_1_0.5_' + str(1) + '.csv')
@@ -68,11 +59,6 @@ def figure_output(epoch, logs):
             else:
                 figure_datas = np.concatenate(
                     (figure_datas, np.array((v - np.min(v, axis=1)) / (np.max(v, axis=1) - np.min(v, axis=1)))), axis=0)
-
-
-        #train_data_x2 = np.append(np.zeros([len(figure_datas), 1, 1]), figure_datas [:, 1:,:] - figure_datas [:, :-1, :], axis=1)
-
-        #figure_datas = np.append(figure_datas , train_data_x2, axis=2)
 
 
 
@@ -99,9 +85,6 @@ def figure_output(epoch, logs):
                 figure_datas = np.concatenate(
                     (figure_datas, np.array((v - np.min(v, axis=1)) / (np.max(v, axis=1) - np.min(v, axis=1)))), axis=0)
 
-        #train_data_x2 = np.append(np.zeros([len(figure_datas ), 1, 1]), figure_datas [:, 1:,:] - figure_datas [:, :-1, :], axis=1)
-
-        #figure_datas = np.append(figure_datas , train_data_x2, axis=2)
         figure = plt.figure(figsize=(16, 6))
 
         plt.plot(datas2['x'][480:].values)
@@ -111,16 +94,12 @@ def figure_output(epoch, logs):
                                                                                                          axis=1))
         cm_image2 = plot_to_image(figure)
 
-        # figure2 = plt.figure(figsize=(16, 6))
-        # powerSpectrum, freqenciesFound, time, imageAxis = plt.specgram(model.predict(fig_data).reshape(-1), Fs=240, cmap='plasma')
-        # # Run time Warning?
-        # cm2_image = plot_to_image(figure2)
 
         with file_writer_cm.as_default():
             tf.summary.image("output_test" + str(1), cm_image, step=epoch)
             tf.summary.image("output_Train" + str(1), cm_image2, step=epoch)
 
-            # tf.summary.image("spectral" + str(i), cm2_image, step=epoch)
+
 
 
 train_data_x, train_data_y = np.load('data_train_x,task,microscope_1_0.5,myunghoon.npy'), np.load(
@@ -128,8 +107,8 @@ train_data_x, train_data_y = np.load('data_train_x,task,microscope_1_0.5,myungho
 test_data_x, test_data_y = np.load('data_test_x,task,microscope_1_0.5,myunghoon.npy'), np.load(
     'data_test_y,task,microscope_1_0.5,myunghoon.npy')
 
-train_data_x, train_data_y = train_data_x[1:,:,:], train_data_y[:-1,:,:]
-test_data_x, test_data_y  = test_data_x[1:,:,:], test_data_y[:-1,:,:]
+train_data_x, train_data_y = train_data_x[:-1,:,:], train_data_y[1:,:,:]
+test_data_x, test_data_y  = test_data_x[:-1,:,:], test_data_y[1:,:,:]
 
 #train_data_x2 = np.append(np.zeros([len(train_data_x), 1, 1]), train_data_x[:, 1:, :] - train_data_x[:, :-1, :], axis=1)
 
@@ -146,12 +125,14 @@ tf_data_train = tf.data.Dataset.from_tensor_slices((train_data_x[:, 480 - length
 tf_data_test = tf.data.Dataset.from_tensor_slices((test_data_x[:, 480 - length:, :], test_data_y)).shuffle(
     100000).repeat().batch(64)
 
-model = new_model.NBeatsNet()
+model = model.NBeatsNet()
 
 # model = model2.build_model()
+#model.load_weights('C:\\Users\\HERO\\PycharmProjects\\Kist_model1\\saved_model\\40.hdf5')
 
 
-model.compile(loss='mse', optimizer= RAdam(0.005), metrics=['mse']) ##
+
+model.compile(loss= ['mse'], optimizer= RAdam(0.005), metrics=['mse']) ##
 
 # ss
 
@@ -179,9 +160,10 @@ callbacks = [
 ]
 
 
-
-model.fit(tf_data_train, steps_per_epoch=100, validation_data=tf_data_test, validation_steps=20, epochs=1000,
-          callbacks=callbacks)
-model.save("./saved_model", overwrite=True)
-
-
+if __name__ == '__main__':
+    """
+    모델을 학습시키고 저장시키는 부분
+    """
+    model.fit(tf_data_train, steps_per_epoch=100, validation_data=tf_data_test, validation_steps=20, epochs=1000,
+              callbacks=callbacks)
+    model.save("./saved_model", overwrite=True)
