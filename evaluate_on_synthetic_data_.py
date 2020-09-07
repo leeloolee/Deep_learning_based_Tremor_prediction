@@ -1,10 +1,10 @@
-import model
+import models
 import numpy as np
 import math
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-model = model.NBeatsNet()
+model = models.NBeatsNet()
 
 model.load_weights('C:\\Users\\HERO\\PycharmProjects\\Kist_model1\\saved_model\\25.hdf5')
 

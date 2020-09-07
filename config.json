@@ -1,0 +1,10 @@
+{
+  "TASK": "STATIC",
+
+  "MODE" : "TRAIN",
+
+  "DATA_PREPROCESS_PARAM" : "",
+
+  "TRAIN_PARAM" : ""
+
+}

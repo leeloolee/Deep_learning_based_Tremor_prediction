@@ -1,5 +1,8 @@
 /saved_model/
 /*.npy
-/datasets/*.npy
+/datasets/
 /logs/
 *.url
+*.ipynb
+*.pkl
+*.npy
